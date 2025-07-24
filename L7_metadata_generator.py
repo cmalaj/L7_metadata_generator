@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 st.set_page_config(page_title="LogPhase 600 Metadata Generator", layout="centered")
-st.title("🧬 LogPhase 600 Metadata File Generator")
+st.title("LogPhase 600 Metadata File Generator")
 
 st.markdown("Use this tool to generate a metadata file for your LogPhase 600 growth/kill curve run.")
 
@@ -12,16 +12,16 @@ tz = pytz.timezone("Asia/Singapore")  # or GMT+8 manually
 now_gmt8 = datetime.now(tz)
 
 # --- Experiment Metadata ---
-st.header("🔹 Experiment Information")
+st.header("Experiment Information")
 
 with st.form("main_metadata_form"):
     exp_date = st.date_input("Experiment Date", value=now_gmt8.date())
-    exp_time = st.time_input("Experiment Start Time (GMT+8)", value=now_gmt8.time())
+    exp_time = st.time_input("Experiment Start Time", value=now_gmt8.time())
     technician = st.text_input("Technician Name or Initials")
     exp_type = st.selectbox("Experiment Type", ["Quality Control", "Production"])
-    organism = st.text_input("Bacterial Organism", value="E. coli")
+    organism = st.text_input("Bacterial Organism", value="P. aeruginosa")
 
-    num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=1)
+    num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=4)
 
     notes = st.text_area("Additional Notes")
     serial_number = st.text_input("Instrument Serial Number", value="LP600-XYZ123")
@@ -31,7 +31,7 @@ with st.form("main_metadata_form"):
 
 # --- Plate Metadata ---
 if submitted:
-    st.header("🧪 Plate Metadata")
+    st.header("Plate Metadata")
 
     plate_data = []
 
