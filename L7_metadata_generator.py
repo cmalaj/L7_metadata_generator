@@ -26,7 +26,8 @@ if not st.session_state.form_submitted:
         technician = st.text_input("Technician Name or Initials")
         exp_type = st.selectbox("Experiment Type", ["Quality Control", "Production"])
         organism = st.text_input("Bacterial Organism", value="P. aeruginosa")
-        num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=4)
+        batch_tag = st.text_input("Brief Description / Batch Tag (used in filename)", placeholder="e.g. Ecoli_QC_Run1")
+        num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=1)
         notes = st.text_area("Additional Notes")
         serial_number = st.text_input("Instrument Serial Number", value="LP600-XYZ123")
         software_version = st.text_input("Software Version", value="Gen5 v3.10")
@@ -39,6 +40,7 @@ if not st.session_state.form_submitted:
             st.session_state.technician = technician
             st.session_state.exp_type = exp_type
             st.session_state.organism = organism
+            st.session_state.batch_tag = batch_tag
             st.session_state.num_plates = int(num_plates)
             st.session_state.notes = notes
             st.session_state.serial_number = serial_number
@@ -80,14 +82,14 @@ if st.session_state.form_submitted:
                     phage_id = phage_list[row_idx // 2]
                     tech_rep = tech_reps[row_idx % 2]
 
-                    # Columns 1–9: MOI/BATCH combinations
+                    # Columns 1–9
                     well_values = []
                     for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
-                        for b_idx, batch in enumerate(batches):
+                        for batch in batches:
                             label = f"{phage_id}-{moi}-{strain_input}-{batch}-{tech_rep}"
                             well_values.append(label)
 
-                    # Columns 10–12: Custom based on your original layout
+                    # Columns 10–12 — match original layout
                     if row_idx == 0:
                         well_values += [phage_id, "BROTH", f"{strain_input}-B1"]
                     elif row_idx == 1:
@@ -107,7 +109,7 @@ if st.session_state.form_submitted:
 
                     layout_df.loc[row_letter, :] = well_values
 
-        # Editable layout
+        # Editable grid
         st.markdown(f"**Customize Layout for Plate {i+1} (optional)**")
         layout_df = st.data_editor(
             layout_df,
@@ -125,14 +127,15 @@ if st.session_state.form_submitted:
             "Layout": layout_df
         })
 
-    # Generate metadata
-    if st.button("Generate Metadata File"):
+    # Generate metadata file
+    if st.button("📄 Generate Metadata File"):
         lines = [
             f"Experiment Date: {st.session_state.exp_date.strftime('%Y-%m-%d')}",
             f"Experiment Start Time (GMT+8): {st.session_state.exp_time.strftime('%I:%M %p')}",
             f"Technician: {st.session_state.technician}",
             f"Experiment Type: {st.session_state.exp_type}",
             f"Bacterial Organism: {st.session_state.organism}",
+            f"Batch Tag: {st.session_state.batch_tag}",
             f"Instrument Serial Number: {st.session_state.serial_number}",
             f"Software Version: {st.session_state.software_version}",
             f"Notes: {st.session_state.notes}",
@@ -151,11 +154,16 @@ if st.session_state.form_submitted:
 
         metadata_text = "\n".join(lines)
 
+        # Format filename
+        exp_type_short = "QC" if st.session_state.exp_type == "Quality Control" else "PROD"
+        filename_base = f"{st.session_state.exp_date.strftime('%Y-%m-%d')}_{st.session_state.technician}_{exp_type_short}_{st.session_state.batch_tag}"
+        safe_filename = filename_base.replace(" ", "_").replace("/", "-")
+
         st.success("Metadata file generated!")
         st.download_button(
             label="Download metadata.txt",
             data=metadata_text,
-            file_name="metadata.txt",
+            file_name=f"{safe_filename}.txt",
             mime="text/plain"
         )
 
