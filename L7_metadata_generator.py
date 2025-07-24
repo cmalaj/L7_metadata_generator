@@ -86,26 +86,26 @@ if st.session_state.form_submitted:
                     well_values = []
                     for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
                         for batch in batches:
-                            label = f"{phage_id}-{moi}-{strain_input}-{batch}-{tech_rep}"
+                            label = f"{phage_id}_{moi}-{strain_input}_{batch}-{tech_rep}"
                             well_values.append(label)
 
                     # Columns 10–12 — match original layout
                     if row_idx == 0:
-                        well_values += [phage_id, "BROTH", f"{strain_input}-B1"]
+                        well_values += [phage_id, "BROTH", f"{strain_input}_B1"]
                     elif row_idx == 1:
-                        well_values += [phage_id, "VEHICLE", f"{strain_input}-B1"]
+                        well_values += [phage_id, "VEHICLE", f"{strain_input}_B1"]
                     elif row_idx == 2:
                         well_values += [phage_id, "PAO1", "EMPTY"]
                     elif row_idx == 3:
-                        well_values += [phage_id, "EMPTY", f"{strain_input}-B2"]
+                        well_values += [phage_id, "EMPTY", f"{strain_input}_B2"]
                     elif row_idx == 4:
-                        well_values += [phage_id, "BROTH", f"{strain_input}-B2"]
+                        well_values += [phage_id, "BROTH", f"{strain_input}_B2"]
                     elif row_idx == 5:
                         well_values += [phage_id, "VEHICLE", "EMPTY"]
                     elif row_idx == 6:
-                        well_values += [phage_id, "PAO1", f"{strain_input}-B3"]
+                        well_values += [phage_id, "PAO1", f"{strain_input}_B3"]
                     elif row_idx == 7:
-                        well_values += [phage_id, "EMPTY", f"{strain_input}-B3"]
+                        well_values += [phage_id, "EMPTY", f"{strain_input}_B3"]
 
                     layout_df.loc[row_letter, :] = well_values
 
