@@ -26,7 +26,7 @@ if not st.session_state.form_submitted:
         technician = st.text_input("Technician Name or Initials")
         exp_type = st.selectbox("Experiment Type", ["Quality Control", "Production"])
         organism = st.text_input("Bacterial Organism", value="P. aeruginosa")
-        num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=1)
+        num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=4)
         notes = st.text_area("Additional Notes")
         serial_number = st.text_input("Instrument Serial Number", value="LP600-XYZ123")
         software_version = st.text_input("Software Version", value="Gen5 v3.10")
@@ -53,7 +53,6 @@ if st.session_state.form_submitted:
     for i in range(st.session_state.num_plates):
         st.subheader(f"Plate {i + 1}")
 
-        # Toggle: Preset or Custom Layout
         layout_mode = st.radio(
             f"Layout Mode for Plate {i+1}",
             ["Use preset layout", "Start with empty layout"],
@@ -62,7 +61,7 @@ if st.session_state.form_submitted:
         )
 
         plate_id = st.text_input(f"Plate {i+1} ID", key=f"plate_{i}_id")
-        strains = st.text_input(f"Bacterial Strain ID(s)", key=f"plate_{i}_strains")
+        strain_input = st.text_input(f"Bacterial Strain ID", key=f"plate_{i}_strain")
         phages = st.text_input(f"Phage(s) for Plate {i+1} (comma-separated, e.g. P1,P2,P3,P4)", key=f"plate_{i}_phages")
 
         rows = list("ABCDEFGH")
@@ -71,8 +70,8 @@ if st.session_state.form_submitted:
 
         if layout_mode == "Use preset layout":
             phage_list = [p.strip() for p in phages.split(",") if p.strip()]
-            batch_list = ["B1", "B2", "B3"]
             tech_reps = ["T1", "T2"]
+            batches = ["B1", "B2", "B3"]
 
             if len(phage_list) != 4:
                 st.warning("⚠️ Please enter exactly 4 phage IDs.")
@@ -80,20 +79,35 @@ if st.session_state.form_submitted:
                 for row_idx, row_letter in enumerate(rows):
                     phage_id = phage_list[row_idx // 2]
                     tech_rep = tech_reps[row_idx % 2]
+
+                    # Columns 1–9: MOI/BATCH combinations
                     well_values = []
-
                     for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
-                        for batch in batch_list:
-                            well_values.append(f"{phage_id}-MOI{moi.split('MOI')[1]}-{batch}-{tech_rep}")
+                        for b_idx, batch in enumerate(batches):
+                            label = f"{phage_id}-{moi}-{strain_input}-{batch}-{tech_rep}"
+                            well_values.append(label)
 
-                    if row_idx % 2 == 0:
-                        well_values += [phage_id, "BROTH", "B1"]
-                    else:
-                        well_values += [phage_id, "VEHICLE", "B1"]
+                    # Columns 10–12: Custom based on your original layout
+                    if row_idx == 0:
+                        well_values += [phage_id, "BROTH", f"{strain_input}-B1"]
+                    elif row_idx == 1:
+                        well_values += [phage_id, "VEHICLE", f"{strain_input}-B1"]
+                    elif row_idx == 2:
+                        well_values += [phage_id, strain_input, "EMPTY"]
+                    elif row_idx == 3:
+                        well_values += [phage_id, "EMPTY", f"{strain_input}-B2"]
+                    elif row_idx == 4:
+                        well_values += [phage_id, "BROTH", f"{strain_input}-B2"]
+                    elif row_idx == 5:
+                        well_values += [phage_id, "VEHICLE", "EMPTY"]
+                    elif row_idx == 6:
+                        well_values += [phage_id, strain_input, f"{strain_input}-B3"]
+                    elif row_idx == 7:
+                        well_values += [phage_id, "EMPTY", f"{strain_input}-B3"]
 
                     layout_df.loc[row_letter, :] = well_values
 
-        # Editable layout (even for auto-filled)
+        # Editable layout
         st.markdown(f"**Customize Layout for Plate {i+1} (optional)**")
         layout_df = st.data_editor(
             layout_df,
@@ -104,15 +118,14 @@ if st.session_state.form_submitted:
             hide_index=False
         )
 
-        # Save data
         plate_data.append({
             "Plate ID": plate_id,
-            "Strain ID(s)": strains,
+            "Strain ID(s)": strain_input,
             "Phage(s)": phages,
             "Layout": layout_df
         })
 
-    # Metadata File Generation
+    # Generate metadata
     if st.button("Generate Metadata File"):
         lines = [
             f"Experiment Date: {st.session_state.exp_date.strftime('%Y-%m-%d')}",
