@@ -3,27 +3,26 @@ from datetime import datetime
 import pytz
 import pandas as pd
 
-# Page settings
+# Setup
 st.set_page_config(page_title="LogPhase 600 Metadata Generator", layout="centered")
 st.title("LogPhase 600 Metadata File Generator")
-
 st.markdown("Use this tool to generate a metadata file for your LogPhase 600 growth/kill curve run.")
 
 # Set default time to GMT+8
 tz = pytz.timezone("Asia/Singapore")
 now_gmt8 = datetime.now(tz)
 
-# --- Session state tracking ---
+# Session State Init
 if "form_submitted" not in st.session_state:
     st.session_state.form_submitted = False
 
-# --- Top-level experiment form ---
+# --- EXPERIMENT METADATA FORM ---
 if not st.session_state.form_submitted:
     st.header("Experiment Information")
 
     with st.form("main_metadata_form"):
         exp_date = st.date_input("Experiment Date", value=now_gmt8.date())
-        exp_time = st.time_input("Experiment Start Time", value=now_gmt8.time())
+        exp_time = st.time_input("Experiment Start Time (GMT+8)", value=now_gmt8.time())
         technician = st.text_input("Technician Name or Initials")
         exp_type = st.selectbox("Experiment Type", ["Quality Control", "Production"])
         organism = st.text_input("Bacterial Organism", value="P. aeruginosa")
@@ -31,11 +30,9 @@ if not st.session_state.form_submitted:
         notes = st.text_area("Additional Notes")
         serial_number = st.text_input("Instrument Serial Number", value="LP600-XYZ123")
         software_version = st.text_input("Software Version", value="Gen5 v3.10")
-
         submitted = st.form_submit_button("Next: Enter Plate Details")
 
         if submitted:
-            # Store form data in session state
             st.session_state.form_submitted = True
             st.session_state.exp_date = exp_date
             st.session_state.exp_time = exp_time
@@ -47,7 +44,7 @@ if not st.session_state.form_submitted:
             st.session_state.serial_number = serial_number
             st.session_state.software_version = software_version
 
-# --- Plate-specific input and layout ---
+# --- PLATE METADATA SECTION ---
 if st.session_state.form_submitted:
     st.header("Plate Metadata")
 
@@ -56,25 +53,58 @@ if st.session_state.form_submitted:
     for i in range(st.session_state.num_plates):
         st.subheader(f"Plate {i + 1}")
 
-        # Basic metadata per plate
-        plate_id = st.text_input(f"Plate {i+1} ID", key=f"plate_{i}_id")
-        strains = st.text_input(f"Strain ID(s) for Plate {i+1}", key=f"plate_{i}_strains")
-        phages = st.text_input(f"Phage(s) for Plate {i+1}", key=f"plate_{i}_phages")
+        # Toggle: Preset or Custom Layout
+        layout_mode = st.radio(
+            f"Layout Mode for Plate {i+1}",
+            ["Use preset layout", "Start with empty layout"],
+            key=f"layout_mode_{i}",
+            horizontal=True
+        )
 
-        # 96-well layout: A-H rows, 1-12 columns
+        plate_id = st.text_input(f"Plate {i+1} ID", key=f"plate_{i}_id")
+        strains = st.text_input(f"Bacterial Strain ID(s)", key=f"plate_{i}_strains")
+        phages = st.text_input(f"Phage(s) for Plate {i+1} (comma-separated, e.g. P1,P2,P3,P4)", key=f"plate_{i}_phages")
+
         rows = list("ABCDEFGH")
         cols = [str(c) for c in range(1, 13)]
-        default_layout = pd.DataFrame("", index=rows, columns=cols)
+        layout_df = pd.DataFrame("", index=rows, columns=cols)
 
+        if layout_mode == "Use preset layout":
+            phage_list = [p.strip() for p in phages.split(",") if p.strip()]
+            batch_list = ["B1", "B2", "B3"]
+            tech_reps = ["T1", "T2"]
+
+            if len(phage_list) != 4:
+                st.warning("⚠️ Please enter exactly 4 phage IDs.")
+            else:
+                for row_idx, row_letter in enumerate(rows):
+                    phage_id = phage_list[row_idx // 2]
+                    tech_rep = tech_reps[row_idx % 2]
+                    well_values = []
+
+                    for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
+                        for batch in batch_list:
+                            well_values.append(f"{phage_id}-MOI{moi.split('MOI')[1]}-{batch}-{tech_rep}")
+
+                    if row_idx % 2 == 0:
+                        well_values += [phage_id, "BROTH", "B1"]
+                    else:
+                        well_values += [phage_id, "VEHICLE", "B1"]
+
+                    layout_df.loc[row_letter, :] = well_values
+
+        # Editable layout (even for auto-filled)
+        st.markdown(f"**Customize Layout for Plate {i+1} (optional)**")
         layout_df = st.data_editor(
-            default_layout,
-            key=f"plate_{i}_layout",
+            layout_df,
+            key=f"plate_{i}_layout_editor",
             use_container_width=True,
             num_rows="fixed",
             column_config={col: st.column_config.TextColumn() for col in cols},
             hide_index=False
         )
 
+        # Save data
         plate_data.append({
             "Plate ID": plate_id,
             "Strain ID(s)": strains,
@@ -82,7 +112,7 @@ if st.session_state.form_submitted:
             "Layout": layout_df
         })
 
-    # Submit to generate metadata
+    # Metadata File Generation
     if st.button("Generate Metadata File"):
         lines = [
             f"Experiment Date: {st.session_state.exp_date.strftime('%Y-%m-%d')}",
@@ -103,13 +133,12 @@ if st.session_state.form_submitted:
             lines.append(f"Strain ID(s): {plate['Strain ID(s)']}")
             lines.append(f"Phage(s): {plate['Phage(s)']}")
             lines.append("Plate Layout:")
-            lines.append(plate["Layout"].to_csv(sep="\t", index=True))  # TSV for better readability
+            lines.append(plate["Layout"].to_csv(sep="\t", index=True))
             lines.append("")
 
         metadata_text = "\n".join(lines)
 
-        st.success("Metadata file generated successfully!")
-
+        st.success("Metadata file generated!")
         st.download_button(
             label="Download metadata.txt",
             data=metadata_text,
@@ -117,7 +146,6 @@ if st.session_state.form_submitted:
             mime="text/plain"
         )
 
-    # Optional: reset button
-    if st.button("Start Over"):
+    if st.button("🔄 Start Over"):
         st.session_state.clear()
         st.experimental_rerun()
