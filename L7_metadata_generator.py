@@ -26,7 +26,7 @@ if not st.session_state.form_submitted:
         technician = st.text_input("Technician Name or Initials")
         exp_type = st.selectbox("Experiment Type", ["Quality Control", "Production"])
         organism = st.text_input("Bacterial Organism", value="P. aeruginosa")
-        batch_tag = st.text_input("Brief Description / Batch Tag (used in filename)", placeholder="e.g. Ecoli_QC_Run1")
+        batch_tag = st.text_input("Brief Description / Batch Tag (used in filename)", placeholder="e.g. AST15_Prod_Run1")
         num_plates = st.number_input("Number of Plates in this Run", min_value=1, step=1, value=1)
         notes = st.text_area("Additional Notes")
         serial_number = st.text_input("Instrument Serial Number", value="LP600-XYZ123")
