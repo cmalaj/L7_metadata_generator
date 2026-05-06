@@ -12,6 +12,91 @@ st.markdown("Use this tool to generate a metadata file for your LogPhase 600 gro
 tz = pytz.timezone("Asia/Singapore")
 now_gmt8 = datetime.now(tz)
 
+# Define phage order for standard layout
+PHAGE_ORDER = [
+    "4TWA",
+    "V1IB",
+    "N5HX",
+    "EUVX",
+    "0VBC",
+    "4NWX",
+    "KPSM",
+    "C7E4",
+    "VKO7",
+    "WDPI",
+    "YK3I",
+    "XMDS",
+    "P71S",
+    "T0U1",
+    "9XQE",
+    "AUV6",
+    "Z6TS",
+    "NC61",
+    "MZOB",
+    "DKQ8",
+    "2CJA",
+    "6281",
+    "NQ4L",
+    "R4QE",
+    "LG65",
+    "J5TC",
+    "O8XK",
+    "GE9K",
+    "EBID"
+]
+
+# Helper function to generate standard layout based on strain, phage order, and plate number as of 14 Nov 2025
+def generate_standard_layout(strain_id, plate_number):
+    rows = list("ABCDEFGH")
+    cols = [str(c) for c in range(1, 13)]
+    layout_df = pd.DataFrame("", index=rows, columns=cols)
+
+    base_layout = [
+        [1, 9, 17, 25, 1, 9, 17, 25, 1, 9, 17, 25],
+        [2, 10, 18, 26, 2, 10, 18, 26, 2, 10, 18, 26],
+        [3, 11, 19, 27, 3, 11, 19, 27, 3, 11, 19, 27],
+        [4, 12, 20, 28, 4, 12, 20, 28, 4, 12, 20, 28],
+        [5, 13, 21, 29, 5, 13, 21, 29, 5, 13, 21, 29],
+        [6, 14, 22, "LB", 6, 14, 22, "LB", 6, 14, 22, "LB"],
+        [7, 15, 23, "BR1", 7, 15, 23, "BR2", 7, 15, 23, "BR3"],
+        [8, 16, 24, "PAO1", 8, 16, 24, "PAO1", 8, 16, 24, "PAO1"],
+    ]
+
+    plate_control_map = {
+        1: "PROP_HOST_MOI0.1_POS",
+        2: "PHAGE_ONLY_NEG",
+        3: "PROP_HOST_ONLY_NEG",
+        4: "PROP_HOST_MOI0.01_POS",
+    }
+
+    phage_control_type = plate_control_map.get(plate_number, f"PHAGE_CONTROL_PLATE{plate_number}")
+
+    for r_idx, row in enumerate(rows):
+        for c_idx, col in enumerate(cols):
+            value = base_layout[r_idx][c_idx]
+
+            if value == "LB":
+                label = "LB"
+            elif value == "PAO1":
+                label = "PAO1"
+            elif isinstance(value, str) and value.startswith("BR"):
+                label = f"{strain_id}_{value}"
+            else:
+                phage_id = PHAGE_ORDER[value - 1]
+
+                if c_idx < 4:
+                    label = f"{phage_id}_MOI0.01-{strain_id}"
+                elif c_idx < 8:
+                    label = f"{phage_id}_MOI0.1-{strain_id}"
+                else:
+                    label = f"{phage_id}_{phage_control_type}"
+
+            layout_df.loc[row, col] = label
+
+    return layout_df
+
+
+
 # Session State Init
 if "form_submitted" not in st.session_state:
     st.session_state.form_submitted = False
@@ -64,50 +149,19 @@ if st.session_state.form_submitted:
 
         plate_id = st.text_input(f"Plate {i+1} ID", key=f"plate_{i}_id")
         strain_input = st.text_input(f"Bacterial Strain ID", key=f"plate_{i}_strain")
-        phages = st.text_input(f"Phage(s) for Plate {i+1} (comma-separated, e.g. P1,P2,P3,P4)", key=f"plate_{i}_phages")
 
         rows = list("ABCDEFGH")
         cols = [str(c) for c in range(1, 13)]
         layout_df = pd.DataFrame("", index=rows, columns=cols)
 
         if layout_mode == "Use preset layout":
-            phage_list = [p.strip() for p in phages.split(",") if p.strip()]
-            tech_reps = ["T1", "T2"]
-            batches = ["B1", "B2", "B3"]
-
-            if len(phage_list) != 4:
-                st.warning("⚠️ Please enter exactly 4 phage IDs.")
+            if not strain_input.strip():
+                st.warning("⚠️ Please enter a bacterial strain ID.")
             else:
-                for row_idx, row_letter in enumerate(rows):
-                    phage_id = phage_list[row_idx // 2]
-                    tech_rep = tech_reps[row_idx % 2]
-
-                    # Columns 1–9
-                    well_values = []
-                    for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
-                        for batch in batches:
-                            label = f"{phage_id}_{moi}-{strain_input}_{batch}-{tech_rep}"
-                            well_values.append(label)
-
-                    # Columns 10–12 — match original layout
-                    if row_idx == 0:
-                        well_values += [phage_id, "BROTH", f"{strain_input}_B1"]
-                    elif row_idx == 1:
-                        well_values += [phage_id, "VEHICLE", f"{strain_input}_B1"]
-                    elif row_idx == 2:
-                        well_values += [phage_id, "PAO1", "EMPTY"]
-                    elif row_idx == 3:
-                        well_values += [phage_id, "EMPTY", f"{strain_input}_B2"]
-                    elif row_idx == 4:
-                        well_values += [phage_id, "BROTH", f"{strain_input}_B2"]
-                    elif row_idx == 5:
-                        well_values += [phage_id, "VEHICLE", "EMPTY"]
-                    elif row_idx == 6:
-                        well_values += [phage_id, "PAO1", f"{strain_input}_B3"]
-                    elif row_idx == 7:
-                        well_values += [phage_id, "EMPTY", f"{strain_input}_B3"]
-
-                    layout_df.loc[row_letter, :] = well_values
+                layout_df = generate_standard_layout(
+                    strain_id=strain_input.strip(),
+                    plate_number=i + 1
+                )
 
         # Editable grid
         st.markdown(f"**Customize Layout for Plate {i+1} (optional)**")
@@ -123,7 +177,6 @@ if st.session_state.form_submitted:
         plate_data.append({
             "Plate ID": plate_id,
             "Strain ID(s)": strain_input,
-            "Phage(s)": phages,
             "Layout": layout_df
         })
 
@@ -147,7 +200,7 @@ if st.session_state.form_submitted:
             lines.append(f"--- Plate {i+1} ---")
             lines.append(f"Plate ID: {plate['Plate ID']}")
             lines.append(f"Strain ID(s): {plate['Strain ID(s)']}")
-            lines.append(f"Phage(s): {plate['Phage(s)']}")
+            lines.append(f"Phage(s): {', '.join(PHAGE_ORDER)}")
             lines.append("Plate Layout:")
             lines.append(plate["Layout"].to_csv(sep="\t", index=True))
             lines.append("")
@@ -169,4 +222,4 @@ if st.session_state.form_submitted:
 
     if st.button("🔄 Start Over"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
